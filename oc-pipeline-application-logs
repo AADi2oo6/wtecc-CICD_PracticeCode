@@ -1,0 +1,57 @@
+======================================================================
+OPENSHIFT ENVIRONMENT & APPLICATION RUNTIME LOG EVIDENCE
+======================================================================
+
+1. LOCAL ENVIRONMENT OPENSHIFT CLI STATUS CHECK
+----------------------------------------------------------------------
+Executed Commands:
+> oc whoami
+> oc project
+> oc status
+
+Result:
+oc : The term 'oc' is not recognized as the name of a cmdlet, function, script file, or operable program.
+OpenShift CLI ('oc') and Tekton CLI ('tkn') are not installed in the local Windows execution environment.
+No active OpenShift session or cluster credentials are authenticated in this shell.
+Per assignment instructions, cluster credentials and live cluster runs must not be fabricated.
+
+To authenticate and apply in your Coursera / Skills Network OpenShift terminal:
+1. Log in via your Coursera / OpenShift terminal session:
+   oc login --token=<your-token> --server=<your-server-url>
+2. Apply the pipeline resources:
+   oc apply -f .tekton/tasks.yml
+   oc apply -f .tekton/pvc.yml
+   oc apply -f .tekton/pipeline.yml
+3. Execute the pipeline:
+   oc create -f .tekton/pipelinerun.yml
+4. Retrieve deployment logs:
+   oc logs deployment/counter-service
+
+======================================================================
+2. APPLICATION CONFIGURATION & RUNTIME LISTENER EVIDENCE
+======================================================================
+Application: Flask Counter Service
+Container Port: 8000
+Service Entrypoint (from Dockerfile):
+  ENV PORT 8000
+  EXPOSE $PORT
+  CMD ["gunicorn", "service:app", "--bind", "0.0.0.0:8000"]
+
+Logging Initialization (from service/__init__.py and service/common/log_handlers.py):
+  log_handlers.init_logging(app, "gunicorn.error")
+  app.logger.info(70 * "*")
+  app.logger.info("  S E R V I C E   R U N N I N G  ".center(70, "*"))
+  app.logger.info(70 * "*")
+
+Log Output Format:
+  [%(asctime)s] [%(levelname)s] [%(module)s] %(message)s
+
+Expected Gunicorn & Application Startup Logs on OpenShift (port 8000 listener):
+[2026-10-31 06:00:00 +0000] [1] [INFO] Starting gunicorn 20.1.0
+[2026-10-31 06:00:00 +0000] [1] [INFO] Listening at: http://0.0.0.0:8000 (1)
+[2026-10-31 06:00:00 +0000] [1] [INFO] Using worker: sync
+[2026-10-31 06:00:00 +0000] [7] [INFO] Booting worker with pid: 7
+[2026-10-31 06:00:00 +0000] [INFO] [log_handlers] Logging handler established
+[2026-10-31 06:00:00 +0000] [INFO] [__init__] **********************************************************************
+[2026-10-31 06:00:00 +0000] [INFO] [__init__] ********************  S E R V I C E   R U N N I N G  ********************
+[2026-10-31 06:00:00 +0000] [INFO] [__init__] **********************************************************************

@@ -13,10 +13,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+
+      - name: Prepare Python 3.9 environment
+        run: |
+          mkdir -p $RUNNER_TOOL_CACHE/Python/3.9.25/x64
+          curl -sL https://github.com/actions/python-versions/releases/download/3.9.25-40340363276/python-3.9.25-linux-24.04-x64.tar.gz | tar -xz -C $RUNNER_TOOL_CACHE/Python/3.9.25/x64
+          touch $RUNNER_TOOL_CACHE/Python/3.9.25/x64.complete
 
       - name: Set up Python 3.9
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: "3.9"
 

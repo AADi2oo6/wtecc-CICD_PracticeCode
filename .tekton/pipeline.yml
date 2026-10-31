@@ -1,0 +1,96 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: oc-final
+spec:
+  workspaces:
+    - name: pipeline-workspace
+  params:
+    - name: repo-url
+      type: string
+      description: The Git repository URL
+      default: "https://github.com/AADi2oo6/wtecc-CICD_PracticeCode.git"
+    - name: branch
+      type: string
+      description: The Git branch to clone
+      default: "main"
+    - name: build-image
+      type: string
+      description: The container image to build and deploy
+  tasks:
+    - name: cleanup
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: cleanup
+
+    - name: git-clone
+      workspaces:
+        - name: output
+          workspace: pipeline-workspace
+      taskRef:
+        name: git-clone
+      params:
+        - name: url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.branch)
+      runAfter:
+        - cleanup
+
+    - name: flake8
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: flake8
+      params:
+        - name: image
+          value: "python:3.9-slim"
+        - name: args
+          value: ["--count", "--max-complexity=10", "--max-line-length=127", "--statistics"]
+      runAfter:
+        - git-clone
+
+    - name: nose
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: nose
+      params:
+        - name: args
+          value: "-v --with-spec --spec-color"
+      runAfter:
+        - flake8
+
+    - name: buildah
+      workspaces:
+        - name: source
+          workspace: pipeline-workspace
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      params:
+        - name: IMAGE
+          value: $(params.build-image)
+      runAfter:
+        - nose
+
+    - name: deploy
+      taskRef:
+        name: openshift-client
+        kind: ClusterTask
+      params:
+        - name: SCRIPT
+          value: |
+            echo "Deploying application to OpenShift..."
+            oc create deployment counter-service --image=$(params.build-image) --dry-run=client -o yaml | oc apply -f -
+            oc set image deployment/counter-service counter-service=$(params.build-image)
+            oc patch deployment counter-service --type='json' -p='[{"op":"add","path":"/spec/template/spec/containers/0/ports","value":[{"containerPort":8000,"protocol":"TCP"}]}]' || true
+            oc expose deployment counter-service --port=8000 --target-port=8000 --dry-run=client -o yaml | oc apply -f -
+            oc create route edge counter-service --service=counter-service --dry-run=client -o yaml | oc apply -f - || true
+            oc rollout status deployment/counter-service --timeout=180s
+      runAfter:
+        - buildah
